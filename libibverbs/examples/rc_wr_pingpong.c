@@ -26,10 +26,6 @@
 
 static int page_size;
 static int validate_buf;
-static int is_hl_device;
-
-/* Enable unit test. Tracks driver development. */
-static int unit_test;
 
 enum {
 	PINGPONG_RECV_WRID = 1,
@@ -60,8 +56,6 @@ struct pingpong_dest {
 	union ibv_gid gid;
 };
 
-#define HL_DEVICE_NAME_PREFIX "hlib"
-
 static void usage(const char *argv0)
 {
 	printf("Usage:\n");
@@ -74,7 +68,6 @@ static void usage(const char *argv0)
 	printf("  -g, --gid-idx=<gid index> local port gid index\n");
 	printf("  -c, --chk                 validate received buffer\n");
 	printf("  -n, --iters=<iters>       number of exchanges (default 1000)\n");
-	printf("  -t, --unit-test           run unit test (default disabled)\n");
 	printf("  -h, --help                display options\n");
 }
 
@@ -105,10 +98,6 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			ibv_get_device_name(ib_dev));
 		goto clean_buffer;
 	}
-
-	/* Move per driver development. */
-	if (unit_test)
-		goto success_unit_test;
 
 	ctx->pd = ibv_alloc_pd(ctx->context);
 	if (!ctx->pd) {
@@ -166,8 +155,6 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			goto clean_qp;
 		}
 	}
-
-success_unit_test:
 
 	return ctx;
 
@@ -570,11 +557,6 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'd':
 			ib_devname = strdupa(optarg);
-
-			if (!strncmp(ib_devname, HL_DEVICE_NAME_PREFIX,
-				sizeof(HL_DEVICE_NAME_PREFIX) - 1))
-				is_hl_device = 1;
-
 			break;
 
 		case 'i':
@@ -599,10 +581,6 @@ int main(int argc, char *argv[])
 
 		case 'c':
 			validate_buf = 1;
-			break;
-
-		case 't':
-			unit_test = 1;
 			break;
 
 		case 'h':
@@ -652,10 +630,6 @@ int main(int argc, char *argv[])
 	ctx = pp_init_ctx(ib_dev, size, rx_depth, ib_port);
 	if (!ctx)
 		return 1;
-
-	/* Move per driver development. */
-	if (unit_test)
-		goto success_unit_test;
 
 	if (pp_get_port_info(ctx->context, ib_port, &ctx->portinfo)) {
 		fprintf(stderr, "Couldn't get port info\n");
@@ -786,7 +760,6 @@ int main(int argc, char *argv[])
 	free(rem_dest);
 	close(ctx->conn_fd);
 
-success_unit_test:
 	if (pp_close_ctx(ctx))
 		return 1;
 
