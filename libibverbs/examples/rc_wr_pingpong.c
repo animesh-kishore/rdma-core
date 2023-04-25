@@ -49,7 +49,7 @@ struct pingpong_context {
 
 struct pingpong_dest {
 	uint32_t rkey;
-	uint64_t remote_addr;
+	uint64_t addr;
 	int lid;
 	int qpn;
 	int psn;
@@ -318,7 +318,7 @@ static struct pingpong_dest *pp_client_exch_dest(struct pingpong_context *ctx,
 	}
 
 	gid_to_wire_gid(&my_dest->gid, gid);
-	sprintf(msg, "%08x:%016lx:%04x:%06x:%06x:%s", my_dest->rkey, my_dest->remote_addr,
+	sprintf(msg, "%08x:%016lx:%04x:%06x:%06x:%s", my_dest->rkey, my_dest->addr,
 						      my_dest->lid, my_dest->qpn,
 						      my_dest->psn, gid);
 	if (write(sockfd, msg, sizeof(msg)) != sizeof(msg)) {
@@ -337,7 +337,7 @@ static struct pingpong_dest *pp_client_exch_dest(struct pingpong_context *ctx,
 	if (!rem_dest)
 		goto out;
 
-	sscanf(msg, "%x:%lx:%x:%x:%x:%s", &rem_dest->rkey, &rem_dest->remote_addr,
+	sscanf(msg, "%x:%lx:%x:%x:%x:%s", &rem_dest->rkey, &rem_dest->addr,
 					  &rem_dest->lid, &rem_dest->qpn,
 					  &rem_dest->psn, gid);
 	wire_gid_to_gid(gid, &rem_dest->gid);
@@ -416,7 +416,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	if (!rem_dest)
 		goto out;
 
-	sscanf(msg, "%x:%lx:%x:%x:%x:%s", &rem_dest->rkey, &rem_dest->remote_addr,
+	sscanf(msg, "%x:%lx:%x:%x:%x:%s", &rem_dest->rkey, &rem_dest->addr,
 					  &rem_dest->lid, &rem_dest->qpn,
 					  &rem_dest->psn, gid);
 	wire_gid_to_gid(gid, &rem_dest->gid);
@@ -429,7 +429,7 @@ static struct pingpong_dest *pp_server_exch_dest(struct pingpong_context *ctx,
 	}
 
 	gid_to_wire_gid(&my_dest->gid, gid);
-	sprintf(msg, "%08x:%016lx:%04x:%06x:%06x:%s", my_dest->rkey, my_dest->remote_addr,
+	sprintf(msg, "%08x:%016lx:%04x:%06x:%06x:%s", my_dest->rkey, my_dest->addr,
 							my_dest->lid, my_dest->qpn,
 							my_dest->psn, gid);
 	if (write(connfd, msg, sizeof(msg)) != sizeof(msg) ||
@@ -459,7 +459,7 @@ static int pp_post_send(struct pingpong_context *ctx, struct pingpong_dest *rem_
 		.opcode			= IBV_WR_RDMA_WRITE,
 		.send_flags		= IBV_SEND_SIGNALED,
 		.wr.rdma		= {
-			.remote_addr    = rem_dest->remote_addr,
+			.remote_addr    = rem_dest->addr,
 			.rkey		= rem_dest->rkey,
 		}
 	};
@@ -655,10 +655,10 @@ int main(int argc, char *argv[])
 	my_dest.qpn = ctx->qp->qp_num;
 	my_dest.psn = lrand48() & 0xffffff;
 	my_dest.rkey = ctx->mr->rkey;
-	my_dest.remote_addr = (uintptr_t) ctx->buf;
+	my_dest.addr = (uintptr_t) ctx->buf;
 	inet_ntop(AF_INET6, &my_dest.gid, gid, sizeof(gid));
-	printf("  local address: RKEY 0x%08x REMOTE_ADDR 0x%016lx LID 0x%04x, QPN 0x%06x, PSN 0x%06x, GID %s\n",
-	       my_dest.rkey, my_dest.remote_addr, my_dest.lid, my_dest.qpn, my_dest.psn, gid);
+	printf("  local: RKEY 0x%08x, ADDR 0x%016lx, LID 0x%04x, QPN 0x%06x, PSN 0x%06x, GID %s\n",
+	       my_dest.rkey, my_dest.addr, my_dest.lid, my_dest.qpn, my_dest.psn, gid);
 
 	if (servername)
 		rem_dest = pp_client_exch_dest(ctx, servername, port, &my_dest);
@@ -669,8 +669,8 @@ int main(int argc, char *argv[])
 		return 1;
 
 	inet_ntop(AF_INET6, &rem_dest->gid, gid, sizeof(gid));
-	printf("  remote address: RKEY 0x%08x REMOTE_ADDR 0x%016lx LID 0x%04x, QPN 0x%06x, PSN 0x%06x, GID %s\n",
-	       rem_dest->rkey, rem_dest->remote_addr, rem_dest->lid, rem_dest->qpn, rem_dest->psn, gid);
+	printf("  remote: RKEY 0x%08x, ADDR 0x%016lx, LID 0x%04x, QPN 0x%06x, PSN 0x%06x, GID %s\n",
+	       rem_dest->rkey, rem_dest->addr, rem_dest->lid, rem_dest->qpn, rem_dest->psn, gid);
 
 	if (servername)
 		if (pp_connect_ctx(ctx, ib_port, my_dest.psn, rem_dest, gidx))
